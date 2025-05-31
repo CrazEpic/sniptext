@@ -1,13 +1,16 @@
 import { useState } from "react"
 import { createWorker } from "tesseract.js"
 import ImagePreviewEditor from "./components/ImagePreviewEditor"
+import SnipBoxOCRPreview from "./components/SnipBoxOCRPreview"
 
 const App = () => {
 	const [imageSrc, setImageSrc] = useState<string | undefined>(undefined)
 	const [imageWidth, setImageWidth] = useState<number>(0)
 	const [imageHeight, setImageHeight] = useState<number>(0)
 	const [extractedText, setExtractedText] = useState<string>("")
-	const [textSkeletonFlag, setTextSkeletonFlag] = useState<boolean>(false)
+	const [processing, setProcessing] = useState<boolean>(false)
+
+	const [snipBoxes, setSnipBoxes] = useState<{ [id: string]: { x: number; y: number; width: number; height: number; text: string } }>({})
 
 	const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
 		const file = event.target.files?.[0]
@@ -40,35 +43,54 @@ const App = () => {
 							<p>Your Image File (PNG/JPEG):</p>
 							<input className="border-black bg-blue-300" onChange={handleImageUpload} type="file" accept="image/png, image/jpeg" />
 						</label>
-						<button>Fancy button</button>
 					</div>
 					{imageSrc ? (
-						<ImagePreviewEditor imageSrc={imageSrc} imageWidth={imageWidth} imageHeight={imageHeight} />
+						<ImagePreviewEditor
+							imageSrc={imageSrc}
+							imageWidth={imageWidth}
+							imageHeight={imageHeight}
+							snipBoxes={snipBoxes}
+							setSnipBoxes={setSnipBoxes}
+						/>
 					) : (
 						<p className="text-red-500">No image loaded.</p>
 					)}
 				</div>
 				<div className="min-w-[300px] grow basis-0">
-					<button
-						className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-						onClick={async () => {
-							if (imageSrc) {
-								setTextSkeletonFlag(true)
-								const text = await extractTextFromImage(imageSrc)
-								setExtractedText(text)
-								setTextSkeletonFlag(false)
-							}
-						}}
-					>
-						Extract Text
-					</button>
-					<p>Extracted Text:</p>
-					{textSkeletonFlag && (
-						<>
-							<div className="w-full h-5 skeleton"></div>
-						</>
+					{imageSrc && (
+						<button
+							className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+							onClick={async () => {
+								if (imageSrc) {
+									setProcessing(true)
+									const text = await extractTextFromImage(imageSrc)
+									setExtractedText(text)
+									setProcessing(false)
+								}
+							}}
+						>
+							Extract Text
+						</button>
 					)}
-					{!textSkeletonFlag && <textarea className="w-full border border-gray-300 p-2" value={extractedText} readOnly />}
+					{!imageSrc && (
+						<button className="bg-gray-500 text-white px-4 py-2 rounded opacity-50" disabled>
+							No image to extract text from
+						</button>
+					)}
+					{/* {imageSrc && <SnipBoxOCRPreview imageSrc={imageSrc} textOCR={""} processing={false} />}{" "} */}
+					{Object.entries(snipBoxes).length > 0 &&
+						Object.entries(snipBoxes).map(([id, box]) => (
+							<SnipBoxOCRPreview
+								key={id}
+								imageSrc={imageSrc}
+								imageLeft={box.x}
+								imageTop={box.y}
+								imageWidth={box.width}
+								imageHeight={box.height}
+								textOCR={box.text}
+								processing={processing}
+							/>
+						))}
 				</div>
 			</div>
 		</>

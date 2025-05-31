@@ -9,7 +9,6 @@ export const clampBounds = (
 	const minY = Math.min(0, parentShapeSize.height * (1 - parentScale.zoomScale) * parentScale.resizeScale)
 	const maxX = (parentPosition.x + parentShapeSize.width - shapeSize.width) * (1 - parentScale.zoomScale) * parentScale.resizeScale
 	const maxY = (parentPosition.y + parentShapeSize.height - shapeSize.height) * (1 - parentScale.zoomScale) * parentScale.resizeScale
-	console.log("Min and Max", minX, minY, maxX, maxY)
 	const x = Math.max(minX, Math.min(maxX, pos.x))
 	const y = Math.max(minY, Math.min(maxY, pos.y))
 	return { x, y }

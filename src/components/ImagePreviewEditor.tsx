@@ -4,10 +4,9 @@ import { Stage, Layer, Image, Rect, Transformer } from "react-konva"
 import useImage from "use-image"
 import { clampBounds } from "./utils"
 
-const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight }) => {
+const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight, snipBoxes, setSnipBoxes }) => {
 	const [image] = useImage(imageSrc)
 
-	const [snipBoxes, setSnipBoxes] = useState<{ [id: string]: { x: number; y: number; width: number; height: number } }>({})
 	const [selectedSnipBoxID, setSelectedSnipBoxID] = useState(null)
 
 	const transformerRef = useRef(null)
@@ -161,8 +160,6 @@ const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight }) => {
 	}
 
 	const handleDragBound = (pos) => {
-		// return boundFunc(pos, stageProperties.resizeScale * stageProperties.zoomScale)
-		// return clampBounds(pos)
 		return clampBounds(
 			pos,
 			{
@@ -199,36 +196,67 @@ const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight }) => {
 		if (!e.target.hasName("rect")) {
 			return
 		}
+		const id = e.target.id()
+		const node = snipBoxRefs.current.get(id)
+		// Get the position of the rectangle
+		const pos = node.getClientRect()
+		const minX = Math.min(0, imageWidth * (1 - stageProperties.zoomScale) * stageProperties.resizeScale)
+		const minY = Math.min(0, imageHeight * (1 - stageProperties.zoomScale) * stageProperties.resizeScale)
+		const maxX = (stageProperties.x + imageWidth) * stageProperties.zoomScale * stageProperties.resizeScale - pos.width
+		const maxY = (stageProperties.y + imageHeight) * stageProperties.zoomScale * stageProperties.resizeScale - pos.height
+		const newPos = {
+			x: Math.max(minX, Math.min(maxX, pos.x)),
+			y: Math.max(minY, Math.min(maxY, pos.y)),
+		}
+		node.setAbsolutePosition(newPos)
+	}
+
+	const handleSnipBoxDragEnd = (e) => {
 		setSnipBoxes((prev) => {
-			const newBoxes = { ...prev }
+			if (!e.target.hasName("rect")) {
+				return prev
+			}
 			const id = e.target.id()
 			const node = snipBoxRefs.current.get(id)
-			if (!node) return newBoxes
-			// Get the position of the rectangle
-			const pos = node.getClientRect()
+			if (!node) return prev
 
-			// Ensure the position is within bounds based on the current scale
-			const minX = Math.min(0, imageWidth * (1 - stageProperties.zoomScale) * stageProperties.resizeScale)
-			const minY = Math.min(0, imageHeight * (1 - stageProperties.zoomScale) * stageProperties.resizeScale)
-			console.log("minX", minX, "minY", minY)
-			const x = Math.max(minX, Math.min(0, pos.x))
-			const y = Math.max(minY, Math.min(0, pos.y))
-
-			newBoxes[id] = {
-				...newBoxes[id],
-				x: x,
-				y: y,
+			return {
+				...prev,
+				[id]: {
+					...prev[id],
+					x: node.x(),
+					y: node.y(),
+				},
 			}
-			return newBoxes
 		})
+	}
+
+	const handleTransformerEnd = () => {
+		if (!selectedSnipBoxID || !transformerRef.current) return
+
+		const node = snipBoxRefs.current.get(selectedSnipBoxID)
+		if (!node) return
+
+		const newBox = {
+			x: node.x(),
+			y: node.y(),
+			width: node.width(),
+			height: node.height(),
+		}
+
+		setSnipBoxes((prev) => ({
+			...prev,
+			[selectedSnipBoxID]: newBox,
+		}))
 	}
 
 	const addSnipBox = () => {
 		const newBox = {
-			x: Math.random() * stageProperties.width,
-			y: Math.random() * stageProperties.height,
-			width: stageProperties.width,
-			height: 100,
+			x: 0,
+			y: 0,
+			width: stageProperties.width / 10,
+			height: stageProperties.width / 10,
+			text: "",
 		}
 		const newID = nanoid()
 		setSnipBoxes((prev) => {
@@ -282,6 +310,7 @@ const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight }) => {
 								strokeWidth={2}
 								draggable
 								onDragMove={handleSnipBoxDragMove}
+								onDragEnd={handleSnipBoxDragEnd}
 								name={"rect"}
 							/>
 						))}
@@ -297,6 +326,7 @@ const ImagePreviewEditor = ({ imageSrc, imageWidth, imageHeight }) => {
 								return newBox
 							}}
 							rotateEnabled={false}
+							onTransformEnd={handleTransformerEnd}
 						/>
 					</Layer>
 				</Stage>
